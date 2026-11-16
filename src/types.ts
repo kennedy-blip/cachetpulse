@@ -1,0 +1,3 @@
+export type CacheStats = { hits: number; misses: number; totalRequests: number; hitRate: number; tokensSaved: number; costSaved: number; avgLatencySavedMs: number; entries: number; ttlMs: number; maxEntries: number; algorithm: 'semantic' | 'exact' };
+export type CacheResult = { status: 'hit' | 'miss'; response: string; latencyMs: number; tokensSaved: number; tokensUsed?: number; similarity: number; cacheKey: string; model: string };
+export type PlaygroundResult = CacheResult & { prompt: string; time: string };

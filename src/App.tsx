@@ -1,0 +1,27 @@
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowUpRight, CircleHelp, Github, ShieldCheck, Sparkles, Workflow, Zap, Activity } from 'lucide-react';
+import CacheHeader from './components/CacheHeader';
+import CachePlayground from './components/CachePlayground';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import EvictionConfigPanel from './components/EvictionConfigPanel';
+import { clearCache, getStats, runPrompt } from './lib/api';
+import type { CacheStats, PlaygroundResult } from './types';
+type Config={ttlMinutes:number;maxEntries:number;algorithm:'semantic'|'exact'};
+const defaults:Config={ttlMinutes:60,maxEntries:500,algorithm:'semantic'};
+export default function App(){
+ const[stats,setStats]=useState<CacheStats>({hits:84,misses:16,totalRequests:100,hitRate:.84,tokensSaved:12840,costSaved:.03852,avgLatencySavedMs:1248,entries:3,ttlMs:3600000,maxEntries:500,algorithm:'semantic'});
+ const[result,setResult]=useState<PlaygroundResult|null>(null);const[loading,setLoading]=useState(false);const[busy,setBusy]=useState(false);const[config,setConfig]=useState<Config>(defaults);const[toast,setToast]=useState('');
+ const refresh=useCallback(async()=>setStats(await getStats()),[]);
+ useEffect(()=>{void refresh();const timer=window.setInterval(()=>void refresh(),12000);return()=>window.clearInterval(timer);},[refresh]);
+ const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(''),2600);};
+ const execute=async(prompt:string,threshold:number,model:string)=>{setLoading(true);try{const data=await runPrompt(prompt,model,threshold,{ttlMs:config.ttlMinutes*60000,maxEntries:config.maxEntries,algorithm:config.algorithm});setStats(data.stats);setResult({...data.result,prompt,time:new Date().toLocaleTimeString()});}catch{notify('Unable to execute prompt. Please retry.');}finally{setLoading(false);}};
+ const flush=async()=>{setBusy(true);try{setStats(await clearCache());setResult(null);notify('Cache flushed successfully');}finally{setBusy(false);}};
+ const burst=async()=>{setBusy(true);try{const prompts=['What is semantic caching in LLM applications?','Explain the benefits of vector databases','How do I reduce latency in an AI chatbot?','What is semantic caching for LLM apps?','Benefits of using vector databases','How can I make an AI chatbot faster?'];for(const prompt of prompts){const d=await runPrompt(prompt,'gpt-4o-mini',.85,{ttlMs:config.ttlMinutes*60000,maxEntries:config.maxEntries,algorithm:config.algorithm});setStats(d.stats);}notify('Traffic burst completed · 6 requests simulated');}finally{setBusy(false);}};
+ return <div className="app-shell"><CacheHeader stats={stats} onClear={()=>void flush()} onBurst={()=>void burst()} busy={busy}/><main className="main-content">
+ <div className="welcome-row"><div><div className="eyebrow"><span className="live-dot"/> SYSTEM OVERVIEW <span className="eyebrow-line"/></div><h1>Semantic cache <span>intelligence.</span></h1><p>Reduce LLM spend. Accelerate responses. Make every token count.</p></div><div className="welcome-meta"><div><span>ENVIRONMENT</span><b><i className="env-dot"/> DEMO / LOCAL</b></div><div><span>ENGINE UPTIME</span><b>99.98%</b></div></div></div>
+ <div className="section-label"><span>01</span> WORKSPACE <i/></div><div className="workspace-grid"><CachePlayground onRun={execute} result={result} loading={loading}/><div className="side-stack"><div className="side-summary panel"><div className="summary-head"><div className="heading-icon green"><Zap size={15}/></div><span>OPTIMIZATION SNAPSHOT</span><span className="refresh-indicator"><i/> LIVE</span></div><div className="summary-value">${stats.costSaved.toFixed(4)}<span> saved</span></div><div className="summary-sub">Estimated model spend avoided</div><div className="summary-stats"><div><b>{stats.tokensSaved.toLocaleString()}</b><span>TOKENS SAVED</span></div><div><b>{stats.hits}</b><span>CACHE HITS</span></div></div><div className="summary-bottom"><span><ShieldCheck size={13}/> Cost optimization active</span><ArrowUpRight size={14}/></div></div><div className="tip-card"><div><Sparkles size={15}/><b>PRO TIP</b></div><p>Start with a <strong>0.85 threshold</strong> for broader semantic matches. Increase it to reduce false positives.</p></div></div></div>
+ <div className="section-label section-gap"><span>02</span> PERFORMANCE ANALYTICS <i/></div><AnalyticsDashboard stats={stats}/>
+ <div className="section-label section-gap"><span>03</span> ENGINE CONFIGURATION <i/></div><EvictionConfigPanel config={config} onSave={next=>{setConfig(next);notify('Cache policy updated');}}/>
+ <footer className="footer"><div className="footer-brand"><div className="brand-mark small"><Activity size={14}/></div><b>cachepulse</b><span>·</span> Built for intelligent AI infrastructure</div><div className="footer-links"><span><CircleHelp size={13}/> API docs: <code>/api/cache</code></span><span><Workflow size={13}/> Vercel Functions</span><a href="https://github.com/kennedy-blip/cachetpulse" target="_blank" rel="noreferrer"><Github size={13}/> GitHub <ArrowUpRight size={11}/></a></div><span className="footer-version">CACHEPULSE / 1.0.0</span></footer>
+ </main>{toast&&<div className="toast"><ShieldCheck size={15}/>{toast}</div>}</div>;
+}
